@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>iOS 17.4 Beta 4 loses camera access on pushState</title>
+    <style>
+
+        #camera_stream {
+            width: 100%;
+            height: 300px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+
+<h1>iOS 17.4 Beta 4 loses camera access on history.pushState()</h1>
+
+<video id="camera_stream" muted playsinline>
+
+</video>
+
+<div>
+    <button id="pushStateButton">Push State</button>
+    <button id="backButton">Back</button>
+</div>
+
+<script>
+    const videoElement = document.getElementById('camera_stream');
+    navigator.mediaDevices.getUserMedia({
+        video: {
+            facingMode: {
+                ideal: 'environment'
+            }
+        },
+        audio: false
+    }).then((mediaStream) => {
+        videoElement.onloadedmetadata = () => {
+            videoElement.play();
+        };
+        videoElement.srcObject = mediaStream;
+    })
+    .catch((err) => {
+        window.alert('getUserMedia failed: ' + err);
+    });
+
+    let step = 0;
+    document.getElementById('pushStateButton').onclick = () => {
+        step++;
+        history.pushState({ step }, '', '/step' + step.toString());
+        document.getElementById('backButton').disabled = false;
+    };
+    document.getElementById('backButton').onclick = () => {
+        step--;
+        history.back();
+        document.getElementById('backButton').disabled = (step === 0);
+    }
+</script>
+
+</body>
+</html>
