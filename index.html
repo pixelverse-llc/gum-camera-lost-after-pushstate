@@ -22,40 +22,106 @@
 </video>
 
 <div>
-    <button id="pushStateButton">Push State</button>
-    <button id="backButton">Back</button>
+    <button id="push_state_button">Push State</button>
+    <button id="back_button">Back</button>
+    |
+    <button id="enable_track_button" disabled>Re-enable muted track</button>
+    |
+    <button id="reacquire_video_stream">Re-acquire video stream</button>
 </div>
+<pre id="event_log">
+
+</pre>
 
 <script>
+    let theMediaStream = null;
+
+    const backButton = document.getElementById('back_button');
+    const pushStateButton = document.getElementById('push_state_button');
+    const enableTrackButton = document.getElementById('enable_track_button');
+    const reacquireVideoStreamButton = document.getElementById('reacquire_video_stream');
+
+    const eventLog = document.getElementById('event_log');
     const videoElement = document.getElementById('camera_stream');
-    navigator.mediaDevices.getUserMedia({
-        video: {
-            facingMode: {
-                ideal: 'environment'
+
+    async function getVideoStream() {
+        return navigator.mediaDevices.getUserMedia({
+            video: {
+                facingMode: {
+                    ideal: 'environment'
+                }
+            },
+            audio: false
+        }).then((mediaStream) => {
+
+            // hold on to the media stream to re-enable it later if it is muted
+            theMediaStream = mediaStream;
+
+            // listen to video track events and log them
+            const videoTrack = mediaStream.getVideoTracks()[0];
+            videoTrack.onmute = () => {
+                eventLog.innerText += 'video track muted\n';
+                enableTrackButton.disabled = false;
+            };
+            videoTrack.onunmute = () => {
+                eventLog.innerText += 'video track unmuted\n';
+                enableTrackButton.disabled = true;
+            };
+            videoTrack.onended = () => {
+                eventLog.innerText += 'video track ended\n';
             }
-        },
-        audio: false
-    }).then((mediaStream) => {
-        videoElement.onloadedmetadata = () => {
-            videoElement.play();
-        };
-        videoElement.srcObject = mediaStream;
-    })
-    .catch((err) => {
-        window.alert('getUserMedia failed: ' + err);
-    });
+
+            // play video when track is ready
+            videoElement.onloadedmetadata = () => {
+                eventLog.innerText += 'playing media stream id: ' + mediaStream.id;
+                videoElement.play();
+            };
+            videoElement.srcObject = mediaStream;
+        }).catch((err) => {
+            window.alert('getUserMedia failed: ' + err);
+        });
+    }
+
 
     let step = 0;
-    document.getElementById('pushStateButton').onclick = () => {
+    pushStateButton.onclick = () => {
         step++;
-        history.pushState({ step }, '', '/step' + step.toString());
-        document.getElementById('backButton').disabled = false;
+        history.pushState({step}, '', '/step' + step.toString());
+        backButton.disabled = false;
     };
-    document.getElementById('backButton').onclick = () => {
+    backButton.onclick = () => {
         step--;
         history.back();
-        document.getElementById('backButton').disabled = (step === 0);
+        backButton.disabled = (step === 0);
     }
+
+    enableTrackButton.onclick = () => {
+        if (theMediaStream) {
+            const videoTrack = theMediaStream.getVideoTracks()[0];
+            if (videoTrack.muted) {
+                console.log(`Attempting to un-mute track by setting .enabled = true`);
+                videoTrack.enabled = true;
+            }
+        }
+    };
+
+    reacquireVideoStreamButton.onclick = () => {
+
+        // stop and remove tracks of existing media stream
+        if (theMediaStream) {
+            for (let track of theMediaStream.getTracks()) {
+                track.stop();
+                theMediaStream.removeTrack(track);
+            }
+            theMediaStream = undefined;
+        }
+
+        // re-acquire stream
+        getVideoStream();
+    }
+
+    // get initial video stream
+    getVideoStream();
 </script>
 
 </body>
